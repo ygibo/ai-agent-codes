@@ -1,0 +1,155 @@
+@startuml
+
+title ヘルプデスクサービスフロー
+
+actor "ユーザー" as User
+actor "システム" as System
+
+boundary HelpDeskController
+control HelpDeskService
+control WorkflowFactoryInterface
+control WorkflowServiceInterface
+control PlanService
+control SubTaskExecutionService
+control PromptService
+boundary QandASearchServiceInterface
+boundary ManualSearchServiceInterface
+entity PlanState
+entity ExecutionState
+boundary ChatRequestServiceInterface
+
+== 問い合わせ登録 ==
+activate User
+User -> HelpDeskController : request(message)
+activate HelpDeskController
+HelpDeskController --> User : 登録の完了を通知
+deactivate User
+deactivate HelpDeskController
+
+== 回答作成の開始 ==
+System -> HelpDeskController : 自動起動 execute_workflow(message)
+activate System
+activate HelpDeskController
+HelpDeskController -> HelpDeskService : get_answer(message)
+activate HelpDeskService
+
+== Workflow の作成、実行 ==
+== フェーズ: PlanService/ExecutionService 初期化 ==
+HelpDeskService -> PlanService : new(message)
+activate PlanService
+PlanService --> HelpDeskService: return plan_service
+HelpDeskService -> SubTaskExecutionService : new(QandASearchService, ManualSearchService, message)
+activate SubTaskExecutionService
+SubTaskExecutionService --> HelpDeskService: return execution_service
+
+== フェーズ: Workflow の構築 ==
+HelpDeskService -> WorkflowFactoryInterface: construct_workflow(plan_service, execution_service)
+activate WorkflowFactoryInterface
+WorkflowFactoryInterface -> PlanService: get_plan_prompt()
+PlanService -> PromptService: get_prompt(PLAN_PROMPT)
+activate PromptService
+PromptService --> PlanService: return plan_prompt
+deactivate PromptService
+PlanService --> WorkflowFactoryInterface: return plan_prompt
+WorkflowFactoryInterface -> PlanService: get_summary_prompt()
+PlanService -> PromptService: get_prompt(SUMMARY_PROMPT)
+activate PromptService
+PromptService --> PlanService: return summary_prompt
+deactivate PromptService
+PlanService --> WorkflowFactoryInterface: return summary_prompt
+WorkflowFactoryInterface -> SubTaskExecutionService: get_execution_prompt()
+SubTaskExecutionService -> PromptService: get_prompt(EXECUTION_PROMPT)
+activate PromptService
+PromptService --> SubTaskExecutionService: return execution_prompt
+deactivate PromptService
+SubTaskExecutionService --> WorkflowFactoryInterface: return execution_prompt
+WorkflowFactoryInterface -> SubTaskExecutionService: get_refine_prompt()
+SubTaskExecutionService -> PromptService: get_prompt(REFINE_PROMPT)
+activate PromptService
+PromptService --> SubTaskExecutionService: return refine_prompt
+deactivate PromptService
+SubTaskExecutionService --> WorkflowFactoryInterface: return refine_prompt
+WorkflowFactoryInterface -> SubTaskExecutionService: get_tools()
+SubTaskExecutionService --> WorkflowFactoryInterface: return tools
+WorkflowFactoryInterface --> HelpDeskService: return workflow_service
+deactivate WorkflowFactoryInterface
+
+== フェーズ: Workflow の実行 ==
+HelpDeskService -> WorkflowServiceInterface: execute()
+activate WorkflowServiceInterface
+
+== フェーズ: Plan の作成 ==
+WorkflowServiceInterface -> PlanState: new()
+activate PlanState
+WorkflowServiceInterface -> PlanService: create_plan()
+PlanService -> ChatRequestServiceInterface: call(args)
+activate ChatRequestServiceInterface
+ChatRequestServiceInterface --> PlanService: return result
+deactivate ChatRequestServiceInterface
+PlanService --> WorkflowServiceInterface: return result
+WorkflowServiceInterface --> PlanState: update(result)
+
+== フェーズ: サブタスクの実行 ==
+WorkflowServiceInterface -> ExecutionState: new()
+activate ExecutionState
+loop 計画が完了するまで
+    loop サブタスクが完了するまで
+        WorkflowServiceInterface -> SubTaskExecutionService: select_tools()
+        SubTaskExecutionService -> ChatRequestServiceInterface: call(args)
+        activate ChatRequestServiceInterface
+        ChatRequestServiceInterface --> SubTaskExecutionService: return result
+        deactivate ChatRequestServiceInterface
+        SubTaskExecutionService -> WorkflowServiceInterface: return result
+        WorkflowServiceInterface -> SubTaskExecutionService: execute_tools()
+        alt マニュアル検索の場合
+            SubTaskExecutionService -> ManualSearchServiceInterface: search(query)
+            activate ManualSearchServiceInterface
+            ManualSearchServiceInterface --> SubTaskExecutionService: return result
+            deactivate ManualSearchServiceInterface
+        else Q&A 検索の場合
+            SubTaskExecutionService -> QandASearchServiceInterface: search(query)
+            activate QandASearchServiceInterface
+            QandASearchServiceInterface --> SubTaskExecutionService: return result
+            deactivate QandASearchServiceInterface
+        end
+        SubTaskExecutionService -> ExecutionState: update(result)
+        ExecutionState --> SubTaskExecutionService: return result
+        SubTaskExecutionService --> WorkflowServiceInterface: return result
+        WorkflowServiceInterface -> SubTaskExecutionService: create_subtask_answer()
+        SubTaskExecutionService -> ChatRequestServiceInterface: call(args)
+        activate ChatRequestServiceInterface
+        ChatRequestServiceInterface --> SubTaskExecutionService: return result
+        deactivate ChatRequestServiceInterface
+        SubTaskExecutionService -> WorkflowServiceInterface: return result
+        WorkflowServiceInterface -> SubTaskExecutionService: reflect_answer()
+        SubTaskExecutionService -> ChatRequestServiceInterface: call(args)
+        activate ChatRequestServiceInterface
+        ChatRequestServiceInterface --> SubTaskExecutionService: return result
+        deactivate ChatRequestServiceInterface
+        SubTaskExecutionService -> WorkflowServiceInterface: return result
+    end
+end
+
+== フェーズ: 回答の作成 ==
+WorkflowServiceInterface -> PlanService: create_answer(ExecutionState)
+deactivate ExecutionState
+PlanService -> ChatRequestServiceInterface: call(args)
+activate ChatRequestServiceInterface
+ChatRequestServiceInterface --> PlanService: return result
+deactivate ChatRequestServiceInterface
+PlanService --> WorkflowServiceInterface: return result
+WorkflowServiceInterface -> PlanState: update(result)
+WorkflowServiceInterface --> HelpDeskService: return PlanState.answer
+deactivate ExecutionState
+deactivate PlanState
+deactivate SubTaskExecutionService
+deactivate PlanService
+deactivate WorkflowServiceInterface
+
+== フェーズ: 回答の登録、通知。詳細は省略 ==
+HelpDeskService -> HelpDeskService: register_answer(message, answer)
+deactivate HelpDeskService
+deactivate HelpDeskController
+deactivate System
+
+@enduml

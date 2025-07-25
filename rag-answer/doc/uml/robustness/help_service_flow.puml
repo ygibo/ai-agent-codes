@@ -1,0 +1,50 @@
+@startuml
+
+title ヘルプデスクサービスフロー
+
+' ロバストネス図記法
+skinparam rectangle {
+  BackgroundColor #EEEBDC
+  BorderColor Black
+}
+
+left to right direction
+
+actor "ユーザー" as User
+
+rectangle "システム" {
+    package "Presentation Layer" {
+        boundary HelpDeskController
+    }
+    
+    package "Application Layer" {
+        control HelpDeskService
+    }
+    
+    package "Domain Layer" {
+        control WorkflowServiceInterface
+        control PlanService
+        control ExecutionService
+        control PromptService
+        entity PlanState
+        entity ExecutionState
+    
+        boundary QASearchServiceInterface
+        boundary ManualSearchServiceInterface    
+    }
+}
+
+User --> HelpDeskController : request(message)
+HelpDeskController -> HelpDeskService : get_answer(message)
+HelpDeskService -> WorkflowServiceInterface: execute(plan_service, execution_service)
+WorkflowServiceInterface -> PlanService: get_plan_prompt()
+PlanService -> PromptService: get_prompt()
+WorkflowServiceInterface -> ExecutionService: get_execution_prompt()
+ExecutionService -> PromptService: get_prompt()
+WorkflowServiceInterface --> ExecutionService: get_tools()
+ExecutionService --> QASearchServiceInterface: search(message)
+ExecutionService --> ManualSearchServiceInterface: search(message)
+WorkflowServiceInterface --> PlanState: update(result)
+WorkflowServiceInterface --> ExecutionState: update(result)
+
+@enduml
