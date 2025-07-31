@@ -5,13 +5,28 @@ from domain.value_objects.tool import Tool
 
 class ChatRequestServiceInterface(ABC):
     @abstractmethod
-    def request(
+    def get_message(
         self,
-        user_message: str,
-        tools: list[Tool]
-    ) -> ChatMessage | Tool:
-        """
-        ユーザーのメッセージと使用可能ツールを受け取り、
-        チャットメッセージもしくは選択されたツールを返す
-        """
+        system_prompt: str,
+        messages: list[ChatMessage]
+    ) -> str:
         pass
+    
+    @abstractmethod
+    def select_tool(
+        self,
+        system_prompt: str,
+        messages: list[ChatMessage],
+        tools: list[Tool]
+    ) -> Tool:
+        pass
+    
+    @abstractmethod
+    def get_output_model(
+        self,
+        system_prompt: str,
+        messages: list[ChatMessage],
+        response_format: Type[BaseModel]
+    ) -> Type[BaseModel]:
+        pass
+        
