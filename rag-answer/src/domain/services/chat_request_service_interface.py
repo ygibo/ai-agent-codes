@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from pydantic import BaseModel
+from typing import Type
 from domain.value_objects.chat_message import ChatMessage
 from domain.value_objects.tool import Tool
 
@@ -13,7 +15,7 @@ class ChatRequestServiceInterface(ABC):
         pass
     
     @abstractmethod
-    def select_tool(
+    def select_tools(
         self,
         system_prompt: str,
         messages: list[ChatMessage],
@@ -29,4 +31,3 @@ class ChatRequestServiceInterface(ABC):
         response_format: Type[BaseModel]
     ) -> Type[BaseModel]:
         pass
-        
