@@ -1,5 +1,6 @@
-from typing import Annotated, Sequence, TypedDict
+from typing import Annotated, Sequence, TypedDict, operator
 from domain.value_objects.search_output import SearchOutput
+from domain.value_objects.reflection_result import ReflectionResult
 
 
 class ExecutionState(TypedDict):

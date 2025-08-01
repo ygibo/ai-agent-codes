@@ -20,7 +20,7 @@ class ChatRequestServiceInterface(ABC):
         system_prompt: str,
         messages: list[ChatMessage],
         tools: list[Tool]
-    ) -> Tool:
+    ) -> list[ToolCall]:
         pass
     
     @abstractmethod

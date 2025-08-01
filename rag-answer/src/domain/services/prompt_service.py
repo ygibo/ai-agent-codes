@@ -11,8 +11,11 @@ class PromptService:
     def get_create_plan_user_prompt(self, question: str) -> str:
         return PLANNER_USER_PROMPT.format(question=question)
 
+    def get_tool_selection_system_prompt(self) -> str:
+        return SUBTASK_SYSTEM_PROMPT
+
     def get_tool_selection_user_prompt(self, question: str, plan: str, subtask: str) -> str:
-        return SUBTASK_TOOL_SELECTION_USER_PROMPT.format(
+        return SUBTASK_TOOL_EXECUTION_USER_PROMPT.format(
             question=question,
             plan=plan,
             subtask=subtask

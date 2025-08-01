@@ -2,13 +2,10 @@ from domain.value_objects.tool import Tool
 
 class ToolService:
     def __init__(self):
-        pass
+        self.tools: list[Tool] = []
 
     def register_tool(self, tool: Tool):
-        pass
+        self.tools.append(tool)
 
-    def get_tool_definitions(self) -> list[Tool]:
-        return []
-    
     def get_tools(self) -> list[Tool]:
-        return []
+        return self.tools

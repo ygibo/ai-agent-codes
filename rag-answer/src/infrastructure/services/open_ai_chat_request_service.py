@@ -2,12 +2,14 @@ import openai
 from pydantic import BaseModel
 from typing import Type
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
 from domain.services.chat_request_service_interface import ChatRequestServiceInterface
 from domain.value_objects.chat_message import ChatMessage
 from domain.value_objects.tool import Tool
+from domain.value_objects.tool_call import ToolCall
 
 
 class OpenAIChatRequestService(ChatRequestServiceInterface):
@@ -38,7 +40,7 @@ class OpenAIChatRequestService(ChatRequestServiceInterface):
         for chat_message in messages:
             _messages.append(
                 {
-                    "role": chat_message.role,
+                    "role": chat_message.role.value,
                     "content": chat_message.content
                 }
             )
@@ -67,13 +69,14 @@ class OpenAIChatRequestService(ChatRequestServiceInterface):
         system_prompt: str,
         messages: list[ChatMessage],
         tools: list[Tool]
-    ) -> Tool:
+    ) -> list[ToolCall]:
         messages = self._to_messages(system_prompt, messages)
+        tools = [self._to_tool_definition(tool) for tool in tools]
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                tools=[self._to_tool_definition(tool) for tool in tools],
+                tools=tools,
                 temperature=0.0,
                 seed=42
             )
@@ -81,7 +84,14 @@ class OpenAIChatRequestService(ChatRequestServiceInterface):
             logger.error(f"Error selecting tool: {e}")
             raise e
     
-        # for tool_call in response.choices[0].message.tool_calls:
+        tool_calls: list[ToolCall] = []
+        for tool_call in response.choices[0].message.tool_calls:
+            tool_calls.append(ToolCall(
+                tool_call_id=tool_call.id,
+                tool_name=tool_call.function.name,
+                args=json.loads(tool_call.function.arguments)
+            ))
+        return tool_calls
 
 
     def get_output_model(

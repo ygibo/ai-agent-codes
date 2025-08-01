@@ -13,6 +13,7 @@ class SearchOutput(BaseModel):
             content=hit["_source"]["content"]
         )
     
+    """
     @classmethod
     def from_point(cls, point: ScorePoint) -> "SearchOutput":
         if point.payload is None:
@@ -21,3 +22,4 @@ class SearchOutput(BaseModel):
             file_name=point.payload["file_name"],
             content=point.payload["content"]
         )
+    """
